@@ -4,7 +4,7 @@ import json
 from io import BytesIO
 
 # Import the server module with absolute import
-from server import (
+from argo_bridge import (
     app, parse_args, MODEL_MAPPING, EMBEDDING_MODEL_MAPPING, DEFAULT_MODEL,
     _static_chat_response, _stream_chat_response,
     _static_completions_response, _stream_completions_response,
@@ -33,7 +33,7 @@ class TestChatEndpoint(unittest.TestCase):
         self.app = app.test_client()
         self.app.testing = True
     
-    @patch('server.requests.post')
+    @patch('argo_bridge.requests.post')
     def test_chat_completions_success(self, mock_post):
         """Test successful chat completion request"""
         # Mock the API response
@@ -66,7 +66,7 @@ class TestChatEndpoint(unittest.TestCase):
         self.assertEqual(call_args["messages"], [{"role": "user", "content": "Hello"}])
         self.assertEqual(call_args["temperature"], 0.5)
     
-    @patch('server.requests.post')
+    @patch('argo_bridge.requests.post')
     def test_chat_unsupported_model(self, mock_post):
         """Test chat completion with unsupported model"""
         test_data = {
@@ -83,7 +83,7 @@ class TestChatEndpoint(unittest.TestCase):
         self.assertIn("not supported", data["error"]["message"])
         mock_post.assert_not_called()
     
-    @patch('server.requests.post')
+    @patch('argo_bridge.requests.post')
     def test_chat_api_failure(self, mock_post):
         """Test handling of API failures in chat endpoint"""
         mock_response = MagicMock()
@@ -105,7 +105,7 @@ class TestChatEndpoint(unittest.TestCase):
         data = json.loads(response.data)
         self.assertIn("Internal API error", data["error"]["message"])
     
-    @patch('server.requests.post')
+    @patch('argo_bridge.requests.post')
     def test_chat_streaming(self, mock_post):
         """Test streaming response from chat endpoint"""
         mock_response = MagicMock()
@@ -140,7 +140,7 @@ class TestCompletionsEndpoint(unittest.TestCase):
         self.app = app.test_client()
         self.app.testing = True
     
-    @patch('server.requests.post')
+    @patch('argo_bridge.requests.post')
     def test_completions_success(self, mock_post):
         """Test successful completions request"""
         mock_response = MagicMock()
@@ -175,7 +175,7 @@ class TestEmbeddingsEndpoint(unittest.TestCase):
         self.app = app.test_client()
         self.app.testing = True
     
-    @patch('server._get_embeddings_from_argo')
+    @patch('argo_bridge._get_embeddings_from_argo')
     def test_embeddings_success(self, mock_get_embeddings):
         """Test successful embeddings request"""
         # Mock embedding vectors
@@ -211,7 +211,7 @@ class TestEmbeddingsEndpoint(unittest.TestCase):
         data = json.loads(response.data)
         self.assertIn("not supported", data["error"]["message"])
     
-    @patch('server.requests.post')
+    @patch('argo_bridge.requests.post')
     def test_get_embeddings_from_argo(self, mock_post):
         """Test the _get_embeddings_from_argo helper function"""
         mock_response = MagicMock()
@@ -252,7 +252,7 @@ class TestHelperFunctions(unittest.TestCase):
     
     def test_parse_args(self):
         """Test argument parsing function"""
-        with patch('sys.argv', ['server.py', '--username', 'testuser', '--port', '8080']):
+        with patch('sys.argv', ['argo_bridge.py', '--username', 'testuser', '--port', '8080']):
             args = parse_args()
             self.assertEqual(args.username, 'testuser')
             self.assertEqual(args.port, 8080)
