@@ -56,8 +56,10 @@ ANL_DEBUG_FP = 'log_bridge.log'
 """
 
 @app.route('/chat/completions', methods=['POST'])
+@app.route('/v1/chat/completions', methods=['POST']) #LMStudio Compatibility
 def chat_completions():
     logging.info("Received chat completions request")
+
     data = request.get_json()
     model_base = data.get("model", DEFAULT_MODEL)
     is_streaming = data.get("stream", False)
@@ -147,6 +149,7 @@ def _static_chat_response(text, model):
 
 
 @app.route('/completions', methods=['POST'])
+@app.route('/v1/completions', methods=['POST']) #LMStudio Compatibility
 def completions():
     logging.info("Received completions request")
     data = request.get_json()
@@ -229,6 +232,7 @@ def _stream_completions_response(text, model):
 =================================
 """
 @app.route('/embeddings', methods=['POST'])
+@app.route('/v1/embeddings', methods=['POST'])
 def embeddings():
     logging.info("Recieved embeddings request")
     data = request.get_json()
@@ -320,4 +324,4 @@ if __name__ == '__main__':
     
     logging.info(f'Starting server with debug mode: {debug_enabled}')
     print(f'Starting server... | Port {args.port} | User {args.username} | Debug: {debug_enabled}')
-    app.run(host='localhost', port=args.port)
+    app.run(host='localhost', port=args.port, debug=debug_enabled)
