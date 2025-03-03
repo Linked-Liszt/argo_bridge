@@ -27,6 +27,7 @@ MODEL_MAPPING = {
 
     'gpt-4o': 'gpt4o',
     'gpt4o': 'gpt4o',
+    'gpt-4o-mini': 'gpt4o',
 
     'gpto1preview': 'gpto1preview',
     'o1-preview': 'gpto1preview',
