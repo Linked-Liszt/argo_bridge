@@ -26,7 +26,7 @@ pip install -r requirements.txt
 Start the server with default settings (port 7285):
 
 ```bash
-python server.py
+python argo_bridge.py
 ```
 
 ## Configuration Options
@@ -40,7 +40,7 @@ The server supports the following command-line arguments:
 Example with custom settings:
 
 ```bash
-python server.py --username custom_user --port 8000 --disable-logging
+python argo_bridge.py --username custom_user --port 8000 --disable-logging
 ```
 
 ## Endpoints

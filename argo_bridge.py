@@ -55,8 +55,8 @@ ANL_DEBUG_FP = 'log_bridge.log'
 =================================
 """
 
-@app.route('/chat/completions', methods=['POST'])
-@app.route('/v1/chat/completions', methods=['POST']) #LMStudio Compatibility
+@app.route('/chat/completions', methods=['POST', 'OPTIONS'])
+@app.route('/v1/chat/completions', methods=['POST', 'OPTIONS']) #LMStudio Compatibility
 def chat_completions():
     logging.info("Received chat completions request")
 
@@ -149,7 +149,7 @@ def _static_chat_response(text, model):
 
 
 @app.route('/completions', methods=['POST'])
-@app.route('/v1/completions', methods=['POST']) #LMStudio Compatibility
+@app.route('/v1/completions', methods=['POST', 'OPTIONS']) #LMStudio Compatibility
 def completions():
     logging.info("Received completions request")
     data = request.get_json()
