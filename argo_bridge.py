@@ -6,8 +6,24 @@ import time
 import json
 import logging
 import argparse
+from flask_cors import CORS  # Add this import
 
 app = Flask(__name__)
+CORS(app, 
+     origins="*",
+     allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
+     expose_headers=["Content-Type", "Authorization"],
+     methods=["POST", "OPTIONS"],
+     supports_credentials=True)
+
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    response.headers.add('Access-Control-Allow-Credentials', 'true')
+    return response
+
 
 # Model names are different between OpenAI and Argo API
 MODEL_MAPPING = {
@@ -55,8 +71,9 @@ ANL_DEBUG_FP = 'log_bridge.log'
 =================================
 """
 
-@app.route('/chat/completions', methods=['POST', 'OPTIONS'])
-@app.route('/v1/chat/completions', methods=['POST', 'OPTIONS']) #LMStudio Compatibility
+@app.route('/chat/completions', methods=['POST'])
+@app.route('/api/chat/completions', methods=['POST'])
+@app.route('/v1/chat/completions', methods=['POST']) #LMStudio Compatibility
 def chat_completions():
     logging.info("Received chat completions request")
 
@@ -248,7 +265,7 @@ def embeddings():
     input_data = data.get("input", [])
     if isinstance(input_data, str):
         input_data = [input_data]
-    
+
     embedding_vectors = _get_embeddings_from_argo(input_data, model)
     
     response_data = {
@@ -293,7 +310,7 @@ def _get_embeddings_from_argo(texts, model):
             raise Exception(f"Embedding API error: {response.status_code} {response.reason}")
         
         embedding_response = response.json()
-        batch_embeddings = [item["embedding"] for item in embedding_response.get("data", [])]
+        batch_embeddings = embedding_response.get("embedding", [])
         all_embeddings.extend(batch_embeddings)
     
     return all_embeddings
