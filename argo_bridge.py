@@ -47,6 +47,10 @@ MODEL_MAPPING = {
 
     'gpto1preview': 'gpto1preview',
     'o1-preview': 'gpto1preview',
+
+    'o3-mini': 'gpto3mini',
+    'o3mini': 'gpto3mini',
+    'gpto3mini': 'gpto3mini',
 }
 EMBEDDING_MODEL_MAPPING = {
     'text-embedding-3-small': 'v3small',
