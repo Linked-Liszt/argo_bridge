@@ -6,8 +6,25 @@ import time
 import json
 import logging
 import argparse
+from flask_cors import CORS  # Add this import
+import httpx
 
 app = Flask(__name__)
+CORS(app, 
+     origins="*",
+     allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
+     expose_headers=["Content-Type", "Authorization"],
+     methods=["POST", "OPTIONS"],
+     supports_credentials=True)
+
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    response.headers.add('Access-Control-Allow-Credentials', 'true')
+    return response
+
 
 # Model names are different between OpenAI and Argo API
 MODEL_MAPPING = {
@@ -32,8 +49,9 @@ MODEL_MAPPING = {
     'gpto1preview': 'gpto1preview',
     'o1-preview': 'gpto1preview',
 
-    'o3-mini' : 'gpto3mini',
-    'o3mini' : 'gpto3mini'
+    'o3-mini': 'gpto3mini',
+    'o3mini': 'gpto3mini',
+    'gpto3mini': 'gpto3mini',
 }
 
 EMBEDDING_MODEL_MAPPING = {
@@ -81,12 +99,10 @@ EMBED_ENV = 'prod'
 
 DEFAULT_MODEL = "gpt4o"
 ANL_USER = "APS"
-ANL_DEBUG_FP = '~/Desktop/log_bridge.log'
-
-# Function to get the appropriate URL for a model
-def get_api_url(model, endpoint_type='chat'):
-    env = MODEL_ENV.get(model, 'dev')  # Default to dev if model not found
-    return URL_MAPPING[env][endpoint_type]
+ANL_LLM_URL = 'https://apps.inside.anl.gov/argoapi/api/v1/resource/chat/'
+ANL_EMBED_URL = 'https://apps.inside.anl.gov/argoapi/api/v1/resource/embed/'
+ANL_STREAM_URL = "https://apps-dev.inside.anl.gov/argoapi/api/v1/resource/streamchat/"
+ANL_DEBUG_FP = 'log_bridge.log'
 
 """
 =================================
@@ -94,8 +110,9 @@ def get_api_url(model, endpoint_type='chat'):
 =================================
 """
 
-@app.route('/chat/completions', methods=['POST', 'OPTIONS'])
-@app.route('/v1/chat/completions', methods=['POST', 'OPTIONS']) #LMStudio Compatibility
+@app.route('/chat/completions', methods=['POST'])
+@app.route('/api/chat/completions', methods=['POST'])
+@app.route('/v1/chat/completions', methods=['POST']) #LMStudio Compatibility
 def chat_completions():
     logging.info("Received chat completions request")
 
@@ -125,25 +142,58 @@ def chat_completions():
 
     logging.debug(f"Argo Request {req_obj}")
 
-    response = requests.post(get_api_url(model, 'chat'), json=req_obj)
-    if not response.ok:
-        logging.error(f"Internal API error: {response.status_code} {response.reason}")
-        return jsonify({"error": {
-            "message": f"Internal API error: {response.status_code} {response.reason}"
-        }}), 500
-
-    json_response = response.json()
-    text = json_response.get("response", "")
-
-    logging.debug(f"Response Text {text}")
-
-    if is_streaming: 
-        return Response(_stream_chat_response(text, model), mimetype='text/event-stream')
+    if is_streaming:
+        return Response(_stream_chat_response(model, req_obj), mimetype='text/event-stream')
     else:
+        response = requests.post(ANL_LLM_URL, json=req_obj)
+        if not response.ok:
+            logging.error(f"Internal API error: {response.status_code} {response.reason}")
+            return jsonify({"error": {
+                "message": f"Internal API error: {response.status_code} {response.reason}"
+            }}), 500
+
+        json_response = response.json()
+        text = json_response.get("response", "")
+        logging.debug(f"Response Text {text}")
         return jsonify(_static_chat_response(text, model_base))
 
-def _stream_chat_response(text, model):
-    chunk = {
+    
+def _stream_chat_response(model, req_obj):
+    begin_chunk = {
+        "id": 'abc',
+        "object": "chat.completion.chunk",
+        "created": int(datetime.datetime.now().timestamp()),
+        "model": model,
+        "choices": [{
+                    "index": 0,
+                    "delta": {'role': 'assistant', 'content':''},
+                    "logprobs": None,
+                    "finish_reason": None
+                }]                   
+    }
+    yield f"data: {json.dumps(begin_chunk)}\n\n"
+
+
+    with httpx.stream("POST", ANL_STREAM_URL, json=req_obj, timeout=300.0)  as response:
+        for chunk in response.iter_bytes():
+            if chunk:
+                text = chunk.decode(errors="replace")
+                logging.debug(f'Text Chunk Recieved: {chunk}')
+                response_chunk = {
+                    "id": 'abc',
+                    "object": "chat.completion.chunk",
+                    "created": int(datetime.datetime.now().timestamp()),
+                    "model": model,
+                    "choices": [{
+                                "index": 0,
+                                "delta": {'content': text},
+                                "logprobs": None,
+                                "finish_reason": None
+                            }]                   
+                }
+                yield f"data: {json.dumps(response_chunk)}\n\n"
+    
+    end_chunk = {
         "id": 'argo',
         "object": "chat.completion.chunk",
         "created": int(datetime.datetime.now().timestamp()),
@@ -151,14 +201,12 @@ def _stream_chat_response(text, model):
         "system_fingerprint": "fp_44709d6fcb",
         "choices": [{
             "index": 0,
-            "delta": {'role': 'assistant', 'content': text, 'refusal': None},
+            "delta": {},
             "logprobs": None,
             "finish_reason": "stop"
         }]
     }
-    yield f"data: {json.dumps(chunk)}\n\n"
-    time.sleep(0.8)
-
+    yield f"data: {json.dumps(end_chunk)}\n\n"
     yield "data: [DONE]\n\n"
 
 
@@ -248,7 +296,7 @@ def _static_completions_response(text, model):
         }]
     }
 
-def _stream_completions_response(text, model):
+def _stream_completions_response(text, model, req_obj):
     chunk = {
         "id": 'abc',
         "object": "text_completion",
@@ -287,7 +335,7 @@ def embeddings():
     input_data = data.get("input", [])
     if isinstance(input_data, str):
         input_data = [input_data]
-    
+
     embedding_vectors = _get_embeddings_from_argo(input_data, model)
     
     response_data = {
@@ -332,7 +380,7 @@ def _get_embeddings_from_argo(texts, model):
             raise Exception(f"Embedding API error: {response.status_code} {response.reason}")
         
         embedding_response = response.json()
-        batch_embeddings = [item["embedding"] for item in embedding_response.get("data", [])]
+        batch_embeddings = embedding_response.get("embedding", [])
         all_embeddings.extend(batch_embeddings)
     
     return all_embeddings
@@ -354,7 +402,7 @@ def parse_args():
 if __name__ == '__main__':
     args = parse_args()
     
-    debug_enabled = args.dlog
+    debug_enabled = False
     logging.basicConfig(
         filename=ANL_DEBUG_FP, 
         level=logging.DEBUG if debug_enabled else logging.INFO,
