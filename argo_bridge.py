@@ -49,6 +49,10 @@ MODEL_MAPPING = {
     'gpto1preview': 'gpto1preview',
     'o1-preview': 'gpto1preview',
 
+    'o1-mini': 'gpto1mini',
+    'gpto1mini': 'gpto1mini',
+    'o1mini': 'gpto1mini',
+
     'o3-mini': 'gpto3mini',
     'o3mini': 'gpto3mini',
     'gpto3mini': 'gpto3mini',
@@ -86,12 +90,13 @@ MODEL_ENV = {
     'gpt35large': 'prod',
     'gpt4': 'prod',
     'gpt4large': 'prod',
+    'gpt4turbo': 'prod',
+    'gpt4o': 'prod',
+    'gpto1preview': 'prod',
     
     # Models using development environment
-    'gpt4turbo': 'dev',
-    'gpt4o': 'dev',
-    'gpto1preview': 'dev',
-    'gpto3mini': 'dev'
+    'gpto3mini': 'dev',
+    'gpto1mini': 'dev'
 }
 
 # Default embedding environment
@@ -166,7 +171,7 @@ def chat_completions():
     if is_streaming:
         return Response(_stream_chat_response(model, req_obj), mimetype='text/event-stream')
     else:
-        response = requests.post(ANL_LLM_URL, json=req_obj)
+        response = requests.post(get_api_url(model, 'chat'), json=req_obj)
         if not response.ok:
             logging.error(f"Internal API error: {response.status_code} {response.reason}")
             return jsonify({"error": {
@@ -317,7 +322,7 @@ def _static_completions_response(text, model):
         }]
     }
 
-def _stream_completions_response(text, model, req_obj):
+def _stream_completions_response(text, model):
     chunk = {
         "id": 'abc',
         "object": "text_completion",

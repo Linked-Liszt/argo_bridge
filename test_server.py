@@ -8,7 +8,8 @@ from argo_bridge import (
     app, parse_args, MODEL_MAPPING, EMBEDDING_MODEL_MAPPING, DEFAULT_MODEL,
     _static_chat_response, _stream_chat_response,
     _static_completions_response, _stream_completions_response,
-    _get_embeddings_from_argo
+    _get_embeddings_from_argo, 
+    get_api_url
 )
 
 
@@ -284,6 +285,99 @@ class TestHelperFunctions(unittest.TestCase):
             self.assertEqual(args.port, 8080)
             self.assertFalse(args.dlog)
 
+class TestUrlSwitching(unittest.TestCase):
+    """Test the URL switching functionality"""
+    
+    def test_get_api_url_function(self):
+        """Test the get_api_url function returns correct URLs for different models"""
+        # Test production models
+        self.assertEqual(
+            get_api_url('gpt4o', 'chat'),
+            'https://apps.inside.anl.gov/argoapi/api/v1/resource/chat/'
+        )
+        
+        # Test development models
+        self.assertEqual(
+            get_api_url('gpto3mini', 'chat'),
+            'https://apps-dev.inside.anl.gov/argoapi/api/v1/resource/chat/'
+        )
+        
+        # Test embedding model
+        self.assertEqual(
+            get_api_url('v3small', 'embed'),
+            'https://apps.inside.anl.gov/argoapi/api/v1/resource/embed/'
+        )
+    
+    @patch('argo_bridge.requests.post')
+    def test_chat_endpoint_uses_correct_url(self, mock_post):
+        """Test that chat endpoints use correct URLs based on model"""
+        app_client = app.test_client()
+        mock_response = MagicMock()
+        mock_response.ok = True
+        mock_response.json.return_value = {"response": "Test response"}
+        mock_post.return_value = mock_response
+        
+        # Test with production model (gpt4o)
+        prod_data = {
+            "model": "gpt4o",
+            "messages": [{"role": "user", "content": "Hello"}]
+        }
+        
+        app_client.post('/chat/completions', 
+                        data=json.dumps(prod_data),
+                        content_type='application/json')
+        
+        # Verify URL for production model
+        prod_call = mock_post.call_args_list[0]
+        self.assertEqual(
+            prod_call[0][0],
+            'https://apps.inside.anl.gov/argoapi/api/v1/resource/chat/'
+        )
+        
+        # Reset mock
+        mock_post.reset_mock()
+        
+        # Test with development model (gpto3mini)
+        dev_data = {
+            "model": "o3-mini",
+            "messages": [{"role": "user", "content": "Hello"}]
+        }
+        
+        app_client.post('/chat/completions',
+                        data=json.dumps(dev_data),
+                        content_type='application/json')
+        
+        # Verify URL for development model
+        dev_call = mock_post.call_args_list[0]
+        self.assertEqual(
+            dev_call[0][0],
+            'https://apps-dev.inside.anl.gov/argoapi/api/v1/resource/chat/'
+        )
+    
+    @patch('argo_bridge.requests.post')
+    def test_embeddings_endpoint_uses_correct_url(self, mock_post):
+        """Test that embeddings endpoint uses correct URL"""
+        app_client = app.test_client()
+        mock_response = MagicMock()
+        mock_response.ok = True
+        mock_response.json.return_value = {"embedding": [[0.1, 0.2, 0.3]]}
+        mock_post.return_value = mock_response
+        
+        test_data = {
+            "model": "text-embedding-3-small",
+            "input": ["Test text"]
+        }
+        
+        app_client.post('/embeddings',
+                        data=json.dumps(test_data),
+                        content_type='application/json')
+        
+        # Verify URL for embeddings
+        embed_call = mock_post.call_args_list[0]
+        self.assertEqual(
+            embed_call[0][0],
+            'https://apps.inside.anl.gov/argoapi/api/v1/resource/embed/'
+        )
 
 if __name__ == '__main__':
     unittest.main()
