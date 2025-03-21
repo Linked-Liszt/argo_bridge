@@ -53,6 +53,7 @@ MODEL_MAPPING = {
     'o3mini': 'gpto3mini',
     'gpto3mini': 'gpto3mini',
 }
+
 EMBEDDING_MODEL_MAPPING = {
     'text-embedding-3-small': 'v3small',
     'v3small': 'v3small',
@@ -64,12 +65,65 @@ EMBEDDING_MODEL_MAPPING = {
     'ada002': 'ada002',
 }
 
+# URL mapping for different models
+URL_MAPPING = {
+    # Production URLs
+    'prod': {
+        'chat': 'https://apps.inside.anl.gov/argoapi/api/v1/resource/chat/',
+        'embed': 'https://apps.inside.anl.gov/argoapi/api/v1/resource/embed/'
+    },
+    # Development URLs
+    'dev': {
+        'chat': 'https://apps-dev.inside.anl.gov/argoapi/api/v1/resource/chat/',
+        'embed': 'https://apps-dev.inside.anl.gov/argoapi/api/v1/resource/embed/'
+    }
+}
+
+# Define which models use which environment
+MODEL_ENV = {
+    # Models using production environment
+    'gpt35': 'prod',
+    'gpt35large': 'prod',
+    'gpt4': 'prod',
+    'gpt4large': 'prod',
+    
+    # Models using development environment
+    'gpt4turbo': 'dev',
+    'gpt4o': 'dev',
+    'gpto1preview': 'dev',
+    'gpto3mini': 'dev'
+}
+
+# Default embedding environment
+EMBED_ENV = 'prod'
+
 DEFAULT_MODEL = "gpt4o"
 ANL_USER = "APS"
 ANL_LLM_URL = 'https://apps.inside.anl.gov/argoapi/api/v1/resource/chat/'
 ANL_EMBED_URL = 'https://apps.inside.anl.gov/argoapi/api/v1/resource/embed/'
 ANL_STREAM_URL = "https://apps-dev.inside.anl.gov/argoapi/api/v1/resource/streamchat/"
 ANL_DEBUG_FP = 'log_bridge.log'
+
+def get_api_url(model, endpoint_type):
+    """
+    Determine the correct API URL based on model and endpoint type
+    
+    Args:
+        model (str): The model identifier
+        endpoint_type (str): Either 'chat' or 'embed'
+    
+    Returns:
+        str: The appropriate API URL
+    """
+    # For embedding models, use the default embedding environment
+    if model in EMBEDDING_MODEL_MAPPING.values():
+        env = EMBED_ENV
+    else:
+        # For chat models, look up the environment or default to prod
+        env = MODEL_ENV.get(model, 'prod')
+    
+    # Return the URL from the mapping
+    return URL_MAPPING[env][endpoint_type]
 
 """
 =================================
@@ -233,7 +287,7 @@ def completions():
 
     logging.debug(f"Argo Request {req_obj}")
 
-    response = requests.post(ANL_LLM_URL, json=req_obj)
+    response = requests.post(get_api_url(model, 'chat'), json=req_obj)
     if not response.ok:
         logging.error(f"Internal API error: {response.status_code} {response.reason}")
         return jsonify({"error": {
@@ -340,7 +394,7 @@ def _get_embeddings_from_argo(texts, model):
         
         logging.debug(f"Sending embedding request for batch {i // BATCH_SIZE + 1}: {payload}")
         
-        response = requests.post(ANL_EMBED_URL, json=payload)
+        response = requests.post(get_api_url(model, 'embed'), json=payload)
         
         if not response.ok:
             logging.error(f"Embedding API error: {response.status_code} {response.reason}")
