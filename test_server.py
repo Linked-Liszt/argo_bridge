@@ -105,13 +105,20 @@ class TestChatEndpoint(unittest.TestCase):
         data = json.loads(response.data)
         self.assertIn("Internal API error", data["error"]["message"])
     
-    @patch('argo_bridge.requests.post')
-    def test_chat_streaming(self, mock_post):
+    @patch('argo_bridge.httpx.stream')
+    def test_chat_streaming(self, mock_stream):
         """Test streaming response from chat endpoint"""
+        # Mock the context manager that httpx.stream returns
         mock_response = MagicMock()
-        mock_response.ok = True
-        mock_response.json.return_value = {"response": "Test streaming response"}
-        mock_post.return_value = mock_response
+        
+        # Create mock chunks that will be yielded
+        mock_chunks = [b"First chunk", b"Second chunk"]
+        mock_response.iter_bytes.return_value = mock_chunks
+        
+        # Set up the context manager mock to return our response mock
+        mock_stream_cm = MagicMock()
+        mock_stream_cm.__enter__.return_value = mock_response
+        mock_stream.return_value = mock_stream_cm
         
         test_data = {
             "model": "gpt4o",
@@ -120,18 +127,37 @@ class TestChatEndpoint(unittest.TestCase):
         }
         
         response = self.app.post('/chat/completions',
-                                 data=json.dumps(test_data),
-                                 content_type='application/json')
+                                data=json.dumps(test_data),
+                                content_type='application/json')
         
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.content_type.split(';')[0], 'text/event-stream')
         
         # Read response data
         data = response.data.decode('utf-8')
-        self.assertIn('data:', data)
-        self.assertIn('Test streaming response', data)
-        self.assertIn('[DONE]', data)
-
+        
+        # Check for the beginning chunk
+        self.assertIn('data: {"id": "abc", "object": "chat.completion.chunk"', data)
+        self.assertIn('"delta": {"role": "assistant", "content": ""}', data)
+        
+        # Check for the content chunks
+        for chunk_content in mock_chunks:
+            self.assertIn(f'"delta": {{"content": "{chunk_content.decode()}', data)
+        
+        # Check for the ending chunk
+        self.assertIn('"delta": {}', data)
+        self.assertIn('"finish_reason": "stop"', data)
+        
+        # Check for the [DONE] marker
+        self.assertIn('data: [DONE]', data)
+        
+        # Verify the API was called correctly
+        mock_stream.assert_called_once()
+        call_args = mock_stream.call_args
+        self.assertEqual(call_args[0][0], 'POST')
+        self.assertEqual(call_args[0][1], 'https://apps-dev.inside.anl.gov/argoapi/api/v1/resource/streamchat/')
+        self.assertEqual(call_args[1]['json']['model'], 'gpt4o')
+        self.assertEqual(call_args[1]['json']['messages'], [{"role": "user", "content": "Hello"}])
 
 class TestCompletionsEndpoint(unittest.TestCase):
     """Test the completions endpoint"""
@@ -217,9 +243,9 @@ class TestEmbeddingsEndpoint(unittest.TestCase):
         mock_response = MagicMock()
         mock_response.ok = True
         mock_response.json.return_value = {
-            "data": [
-                {"embedding": [0.1, 0.2, 0.3]},
-                {"embedding": [0.4, 0.5, 0.6]}
+            "embedding": [
+                 [0.1, 0.2, 0.3],
+                 [0.4, 0.5, 0.6]
             ]
         }
         mock_post.return_value = mock_response
