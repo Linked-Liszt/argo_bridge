@@ -104,6 +104,27 @@ ANL_EMBED_URL = 'https://apps.inside.anl.gov/argoapi/api/v1/resource/embed/'
 ANL_STREAM_URL = "https://apps-dev.inside.anl.gov/argoapi/api/v1/resource/streamchat/"
 ANL_DEBUG_FP = 'log_bridge.log'
 
+def get_api_url(model, endpoint_type):
+    """
+    Determine the correct API URL based on model and endpoint type
+    
+    Args:
+        model (str): The model identifier
+        endpoint_type (str): Either 'chat' or 'embed'
+    
+    Returns:
+        str: The appropriate API URL
+    """
+    # For embedding models, use the default embedding environment
+    if model in EMBEDDING_MODEL_MAPPING.values():
+        env = EMBED_ENV
+    else:
+        # For chat models, look up the environment or default to prod
+        env = MODEL_ENV.get(model, 'prod')
+    
+    # Return the URL from the mapping
+    return URL_MAPPING[env][endpoint_type]
+
 """
 =================================
     Chat Endpoint
