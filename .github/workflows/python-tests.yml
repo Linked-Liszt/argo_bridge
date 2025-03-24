@@ -9,7 +9,7 @@ on:
       - main
 
 jobs:
-  test:
+  bridge-test:
     runs-on: ubuntu-latest
 
     steps:
@@ -19,7 +19,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'  # Specify the Python version you want to use
+          python-version: '3.12'  
 
       - name: Install dependencies
         run: |
@@ -28,4 +28,4 @@ jobs:
 
       - name: Run tests
         run: |
-          python -m unittest discover -s . -p "test_*.py"  # Adjust the pattern if needed
+          python -m unittest discover -s . -p "test_*.py"
