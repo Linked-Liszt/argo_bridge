@@ -411,6 +411,42 @@ def _get_embeddings_from_argo(texts, model):
     
     return all_embeddings
 
+def check_argo_connection():
+    """
+    Check connection to Argo API endpoints and report status.
+    
+    Returns:
+        bool: True if all connections successful, False otherwise
+    """
+    all_successful = True
+    
+    print("\nTesting Argo API connections...")
+    logging.info("Testing Argo API connections")
+    
+    for env in ['prod', 'dev']:
+        for endpoint_type in ['chat', 'embed']:
+            url = URL_MAPPING[env][endpoint_type]
+            try:
+                response = requests.head(url, timeout=5)
+                msg = f"✓ Connection to {env} {endpoint_type} endpoint ({url}) available"
+                print(msg)
+                logging.info(msg)
+            except requests.exceptions.RequestException as e:
+                msg = f"✗ Connection to {env} {endpoint_type} endpoint ({url}) failed: {str(e)}"
+                print(msg)
+                logging.error(msg)
+                all_successful = False
+    
+    if all_successful:
+        print("✓ All Argo API connections successful!")
+        logging.info("All Argo API connections successful")
+    else:
+        print("⚠ Some Argo API connections failed. The server may not function correctly.")
+        logging.warning("Some Argo API connections failed")
+    
+    return all_successful
+
+
 """
 =================================
     CLI Functions
@@ -437,4 +473,7 @@ if __name__ == '__main__':
     
     logging.info(f'Starting server with debug mode: {debug_enabled}')
     print(f'Starting server... | Port {args.port} | User {args.username} | Debug: {debug_enabled}')
+
+    check_argo_connection()
+
     app.run(host='localhost', port=args.port, debug=debug_enabled)
