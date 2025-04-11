@@ -31,7 +31,6 @@ MODEL_MAPPING = {
     'gpt35': 'gpt35',
     'gpt-3.5': 'gpt35',
 
-    'gpt-3.5-turbo': 'gpt35large',
     'gpt35large': 'gpt35large',
 
     'gpt4': 'gpt4',
@@ -420,6 +419,7 @@ def check_argo_connection():
     """
     all_successful = True
     
+    # Print for end-user
     print("\nTesting Argo API connections...")
     logging.info("Testing Argo API connections")
     
@@ -464,7 +464,7 @@ def parse_args():
 if __name__ == '__main__':
     args = parse_args()
     
-    debug_enabled = False
+    debug_enabled = args.dlog
     logging.basicConfig(
         filename=ANL_DEBUG_FP, 
         level=logging.DEBUG if debug_enabled else logging.INFO,
