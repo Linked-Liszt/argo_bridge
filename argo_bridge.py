@@ -103,8 +103,6 @@ EMBED_ENV = 'prod'
 
 DEFAULT_MODEL = "gpt4o"
 ANL_USER = "APS"
-ANL_LLM_URL = 'https://apps.inside.anl.gov/argoapi/api/v1/resource/chat/'
-ANL_EMBED_URL = 'https://apps.inside.anl.gov/argoapi/api/v1/resource/embed/'
 ANL_STREAM_URL = "https://apps-dev.inside.anl.gov/argoapi/api/v1/resource/streamchat/"
 ANL_DEBUG_FP = 'log_bridge.log'
 
