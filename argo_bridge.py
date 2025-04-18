@@ -468,6 +468,8 @@ if __name__ == '__main__':
         level=logging.DEBUG if debug_enabled else logging.INFO,
         format='%(asctime)s - %(levelname)s - %(message)s'
     )
+
+    logging.getLogger('watchdog').setLevel(logging.CRITICAL+10)    
     
     logging.info(f'Starting server with debug mode: {debug_enabled}')
     print(f'Starting server... | Port {args.port} | User {args.username} | Debug: {debug_enabled}')
